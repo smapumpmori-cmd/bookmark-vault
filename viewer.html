@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#14131a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>Bookmark Vault — Viewer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #14131a; --ink-2: #1b1a23; --ink-3: #232231; --line: #322f40;
+      --parchment: #ece4d6; --parchment-dim: #a59c8e; --parchment-faint: #6f6757;
+      --amber: #d9a441; --amber-soft: rgba(217,164,65,0.14); --danger: #c06a6a;
+      --radius: 12px;
+      --serif: "Fraunces", Georgia, serif;
+      --sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+      --mono: "JetBrains Mono", ui-monospace, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { background: var(--ink); color: var(--parchment); font-family: var(--sans); font-size: 15px; }
+    body { min-height: 100vh; }
+
+    /* ---- lock screen ---- */
+    .lock { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .lock-card {
+      width: 360px; max-width: 100%; background: var(--ink-2); border: 1px solid var(--line);
+      border-radius: var(--radius); padding: 26px 22px; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .lock-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+    .lock-brand .mark { color: var(--amber); font-size: 22px; }
+    .lock-brand h1 { font-family: var(--serif); font-weight: 900; font-size: 22px; }
+    .lock-sub { font-size: 13px; color: var(--parchment-dim); line-height: 1.5; margin-bottom: 18px; }
+    .lock label { display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--parchment-faint); margin-bottom: 6px; }
+    .lock input[type="password"] {
+      width: 100%; padding: 11px 13px; background: var(--ink-3); border: 1px solid var(--line);
+      border-radius: 9px; color: var(--parchment); font-family: var(--sans); font-size: 15px; outline: none;
+    }
+    .lock input[type="password"]:focus { border-color: var(--amber); box-shadow: 0 0 0 3px var(--amber-soft); }
+    .lock-btn {
+      width: 100%; margin-top: 14px; padding: 12px; border: none; cursor: pointer;
+      background: var(--amber); color: #2a2008; font-family: var(--sans); font-weight: 600; font-size: 15px;
+      border-radius: 999px;
+    }
+    .lock-btn:disabled { opacity: 0.5; cursor: default; }
+    .lock-msg { margin-top: 12px; font-size: 12.5px; line-height: 1.45; min-height: 16px; }
+    .lock-msg.error { color: var(--danger); }
+    .lock-msg.ok { color: var(--parchment-dim); }
+    .lock-file { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 12px; color: var(--parchment-faint); }
+    .lock-file input { margin-top: 7px; font-size: 12px; color: var(--parchment-dim); }
+
+    /* ---- app ---- */
+    .app { display: none; }
+    .topbar {
+      position: sticky; top: 0; z-index: 10;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 13px 16px; border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, var(--ink-2), var(--ink));
+    }
+    .brand { display: flex; align-items: center; gap: 9px; }
+    .brand .mark { color: var(--amber); font-size: 19px; }
+    .brand h1 { font-family: var(--serif); font-weight: 900; font-size: 18px; }
+    .search input {
+      width: 190px; max-width: 46vw; padding: 8px 12px; background: var(--ink-3);
+      border: 1px solid var(--line); border-radius: 999px; color: var(--parchment);
+      font-family: var(--sans); font-size: 13px; outline: none;
+    }
+    .search input:focus { border-color: var(--amber); box-shadow: 0 0 0 3px var(--amber-soft); }
+
+    .filters { display: flex; gap: 7px; flex-wrap: wrap; padding: 12px 16px 4px; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px;
+      background: var(--ink-2); border: 1px solid var(--line); color: var(--parchment-dim);
+      font-size: 12.5px; cursor: pointer; white-space: nowrap;
+    }
+    .pill:hover { color: var(--parchment); }
+    .pill.active { background: var(--ink-3); color: var(--parchment); border-color: var(--parchment-faint); }
+    .pill .pdot { width: 8px; height: 8px; border-radius: 50%; }
+    .pill .pcount { font-family: var(--mono); font-size: 11px; color: var(--parchment-faint); }
+
+    .main { padding: 14px 16px 40px; }
+    .meta { font-family: var(--mono); font-size: 11px; color: var(--parchment-faint); margin-bottom: 12px; }
+
+    .list {
+      display: grid; gap: 14px; grid-template-columns: 1fr; align-items: stretch;
+    }
+    @media (min-width: 720px) { .list { grid-template-columns: 1fr 1fr; } }
+    @media (min-width: 1080px) { .list { grid-template-columns: 1fr 1fr 1fr; } }
+
+    .card {
+      background: var(--ink-2); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 14px 15px; display: flex; flex-direction: column;
+    }
+    .card-head { display: flex; align-items: baseline; gap: 7px; margin-bottom: 7px; flex-wrap: wrap; }
+    .card-author { font-weight: 600; font-size: 13.5px; }
+    .card-handle { color: var(--parchment-faint); font-size: 12px; font-family: var(--mono); }
+    .card-text {
+      font-size: 13.5px; line-height: 1.55; color: var(--parchment); white-space: pre-wrap; word-break: break-word;
+      display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden;
+      min-height: calc(1.55em * 4);
+    }
+    .media-grid { margin-top: 11px; display: grid; gap: 6px; grid-template-columns: 1fr 1fr; flex: 1 1 auto; align-content: center; }
+    .media-grid.single { grid-template-columns: 1fr; }
+    .media-item { width: 100%; max-height: 360px; object-fit: cover; border-radius: 9px; border: 1px solid var(--line); background: var(--ink); display: block; }
+    img.media-item { cursor: zoom-in; }
+    video.media-item { object-fit: contain; background: #000; }
+    .video-poster { position: relative; cursor: pointer; }
+    .video-poster .play-badge {
+      position: absolute; inset: 0; margin: auto; width: 48px; height: 48px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(20,19,26,0.7); border: 1px solid rgba(236,228,214,0.5); color: var(--parchment); font-size: 18px; padding-left: 3px;
+    }
+    .video-poster:hover .play-badge { background: var(--amber); color: #2a2008; }
+    .video-poster.no-poster { min-height: 120px; background: var(--ink-3); border: 1px solid var(--line); border-radius: 9px; display: flex; align-items: center; justify-content: center; }
+    .no-poster-label { position: absolute; bottom: 8px; left: 10px; font-family: var(--mono); font-size: 11px; color: var(--parchment-faint); }
+
+    .card-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: auto; padding-top: 11px; }
+    .chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 11px; background: var(--ink-3); border: 1px solid var(--line); color: var(--parchment-dim); }
+    .chip .chip-dot { width: 7px; height: 7px; border-radius: 50%; }
+    .open-link { margin-left: auto; background: transparent; border: 1px solid var(--line); color: var(--parchment-dim); border-radius: 7px; padding: 4px 9px; font-size: 11.5px; cursor: pointer; font-family: var(--sans); text-decoration: none; }
+    .open-link:hover { border-color: var(--parchment); color: var(--parchment); }
+
+    .empty { text-align: center; padding: 60px 20px; color: var(--parchment-dim); font-size: 14px; }
+
+    ::-webkit-scrollbar { width: 10px; }
+    ::-webkit-scrollbar-thumb { background: var(--ink-3); border-radius: 10px; border: 2px solid var(--ink); }
+  </style>
+</head>
+<body>
+  <!-- unlock screen -->
+  <div id="lock" class="lock">
+    <div class="lock-card">
+      <div class="lock-brand"><span class="mark">❧</span><h1>Bookmark Vault</h1></div>
+      <p class="lock-sub">Read-only viewer. Enter the password you used when exporting to unlock your archive on this device.</p>
+      <label for="pw">Password</label>
+      <input id="pw" type="password" autocomplete="current-password" />
+      <button id="unlock" class="lock-btn" disabled>Unlock</button>
+      <p id="lockMsg" class="lock-msg"></p>
+      <div class="lock-file">
+        No file loaded automatically? Open one from this device:
+        <input id="filePick" type="file" accept=".enc,application/json,application/octet-stream" />
+      </div>
+    </div>
+  </div>
+
+  <!-- app -->
+  <div id="app" class="app">
+    <header class="topbar">
+      <div class="brand"><span class="mark">❧</span><h1>Bookmark Vault</h1></div>
+      <div class="search"><input id="search" type="text" placeholder="Search…" autocomplete="off" /></div>
+    </header>
+    <div id="filters" class="filters"></div>
+    <main class="main">
+      <p id="meta" class="meta"></p>
+      <div id="list" class="list"></div>
+      <div id="empty" class="empty" hidden>No bookmarks match this view.</div>
+    </main>
+  </div>
+
+  <script>
+  "use strict";
+
+  /* ===== crypto — identical scheme to vault-crypto.js (decrypt half) ===== */
+  const VaultCrypto = (() => {
+    const FORMAT = "bookmark-vault-encrypted";
+    const ITERATIONS = 310000;
+    const enc = new TextEncoder(), dec = new TextDecoder();
+    function b64ToBytes(b64) {
+      const bin = atob(b64); const out = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+      return out;
+    }
+    async function deriveKey(password, salt, iterations) {
+      const baseKey = await crypto.subtle.importKey("raw", enc.encode(password), { name: "PBKDF2" }, false, ["deriveKey"]);
+      return crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations, hash: "SHA-256" }, baseKey, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+    }
+    async function decryptVault(envelope, password) {
+      if (!envelope || envelope.format !== FORMAT) throw new Error("This doesn't look like a Bookmark Vault file.");
+      const salt = b64ToBytes(envelope.salt), iv = b64ToBytes(envelope.iv), data = b64ToBytes(envelope.data);
+      const key = await deriveKey(password, salt, envelope.iterations || ITERATIONS);
+      let plain;
+      try { plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, data); }
+      catch (e) { throw new Error("Wrong password, or the file is corrupted."); }
+      return JSON.parse(dec.decode(plain));
+    }
+    return { decryptVault };
+  })();
+
+  /* ===== state ===== */
+  let envelope = null;     // parsed encrypted file
+  let payload = null;      // decrypted { bookmarks, folders, ... }
+  let selected = "all";    // 'all' | 'unfiled' | folderId
+  let query = "";
+
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, txt) => { const n = document.createElement(tag); if (cls) n.className = cls; if (txt != null) n.textContent = txt; return n; };
+
+  /* ===== load the encrypted file ===== */
+  function setMsg(text, kind) { const m = $("lockMsg"); m.textContent = text || ""; m.className = "lock-msg" + (kind ? " " + kind : ""); }
+
+  async function tryAutoLoad() {
+    try {
+      const resp = await fetch("vault-export.enc", { cache: "no-store" });
+      if (!resp.ok) throw new Error("not found");
+      envelope = await resp.json();
+      $("unlock").disabled = false;
+      setMsg("Encrypted vault loaded. Enter your password.", "ok");
+      $("pw").focus();
+    } catch (e) {
+      setMsg("Couldn't auto-load vault-export.enc — choose the file below.", "ok");
+    }
+  }
+
+  $("filePick").addEventListener("change", async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    try {
+      envelope = JSON.parse(await file.text());
+      $("unlock").disabled = false;
+      setMsg("File loaded. Enter your password.", "ok");
+      $("pw").focus();
+    } catch (err) {
+      envelope = null; $("unlock").disabled = true;
+      setMsg("That file couldn't be read as a vault export.", "error");
+    }
+  });
+
+  async function doUnlock() {
+    if (!envelope) { setMsg("Load a vault file first.", "error"); return; }
+    const pw = $("pw").value;
+    if (!pw) { setMsg("Enter your password.", "error"); return; }
+    const btn = $("unlock"); btn.disabled = true; btn.textContent = "Unlocking…";
+    try {
+      payload = await VaultCrypto.decryptVault(envelope, pw);
+      $("pw").value = "";
+      $("lock").style.display = "none";
+      $("app").style.display = "block";
+      renderFilters(); renderList();
+    } catch (err) {
+      setMsg(err.message, "error");
+    } finally {
+      btn.disabled = false; btn.textContent = "Unlock";
+    }
+  }
+  $("unlock").addEventListener("click", doUnlock);
+  $("pw").addEventListener("keydown", (e) => { if (e.key === "Enter") doUnlock(); });
+  $("search").addEventListener("input", (e) => { query = e.target.value; renderList(); });
+
+  /* ===== querying (mirrors core.js, read-only) ===== */
+  function bookmarks() { return Array.isArray(payload.bookmarks) ? payload.bookmarks : []; }
+  function folders() { return Array.isArray(payload.folders) ? payload.folders : []; }
+
+  function listFor(sel) {
+    const all = bookmarks(); // already sorted at export time
+    if (sel === "all") return all;
+    if (sel === "unfiled") return all.filter((b) => !b.folders || b.folders.length === 0);
+    return all.filter((b) => (b.folders || []).includes(sel));
+  }
+  function applySearch(list) {
+    const q = query.trim().toLowerCase();
+    if (!q) return list;
+    const terms = q.split(/\s+/);
+    return list.filter((b) => {
+      const hay = ((b.text || "") + " " + (b.author || "") + " " + (b.authorName || "")).toLowerCase();
+      return terms.every((t) => hay.includes(t));
+    });
+  }
+  function countFor(sel) { return listFor(sel).length; }
+
+  /* ===== rendering ===== */
+  function renderFilters() {
+    const bar = $("filters"); bar.innerHTML = "";
+    bar.appendChild(pill("all", "All", null, countFor("all")));
+    bar.appendChild(pill("unfiled", "Unfiled", null, countFor("unfiled")));
+    for (const f of folders()) bar.appendChild(pill(f.id, f.name, f.color, countFor(f.id)));
+  }
+  function pill(id, name, color, count) {
+    const p = el("div", "pill" + (selected === id ? " active" : ""));
+    if (color) { const d = el("span", "pdot"); d.style.background = color; p.appendChild(d); }
+    p.appendChild(el("span", null, name));
+    p.appendChild(el("span", "pcount", String(count)));
+    p.addEventListener("click", () => { selected = id; renderFilters(); renderList(); });
+    return p;
+  }
+
+  function renderList() {
+    const list = $("list"); list.innerHTML = "";
+    const items = applySearch(listFor(selected));
+    $("meta").textContent = `${items.length} bookmark${items.length === 1 ? "" : "s"}`
+      + (payload.exportedAt ? ` · exported ${new Date(payload.exportedAt).toLocaleString()}` : "");
+    $("empty").hidden = items.length > 0;
+    for (const b of items) list.appendChild(card(b));
+  }
+
+  function card(b) {
+    const c = el("div", "card");
+    const head = el("div", "card-head");
+    head.appendChild(el("span", "card-author", b.authorName || b.author || "Unknown"));
+    if (b.author) head.appendChild(el("span", "card-handle", b.author));
+    c.appendChild(head);
+    c.appendChild(el("div", "card-text", b.text || "(no text)"));
+
+    if (b.media && b.media.length) {
+      const grid = el("div", "media-grid" + (b.media.length === 1 ? " single" : ""));
+      for (const m of b.media) {
+        if (m.type === "video") {
+          const wrap = el("div", "video-poster");
+          if (m.poster) {
+            const img = document.createElement("img");
+            img.src = m.poster; img.loading = "lazy"; img.className = "media-item";
+            wrap.appendChild(img);
+          } else {
+            wrap.classList.add("no-poster");
+            wrap.appendChild(el("span", "no-poster-label", "Video"));
+          }
+          wrap.appendChild(el("span", "play-badge", "▶"));
+          wrap.title = m.url ? "Play" : "Open on X to play";
+          wrap.addEventListener("click", () => {
+            if (m.url) {
+              const v = document.createElement("video");
+              v.src = m.url; v.controls = true; v.autoplay = true; v.playsInline = true;
+              if (m.poster) v.poster = m.poster;
+              if (m.gif) { v.loop = true; v.muted = true; }
+              v.className = "media-item";
+              v.addEventListener("error", () => b.url && window.open(b.url, "_blank"));
+              wrap.replaceWith(v);
+            } else if (b.url) { window.open(b.url, "_blank"); }
+          });
+          grid.appendChild(wrap);
+        } else if (m.url) {
+          const img = document.createElement("img");
+          img.src = m.url; img.loading = "lazy"; img.className = "media-item";
+          img.addEventListener("click", () => window.open(m.url, "_blank"));
+          grid.appendChild(img);
+        }
+      }
+      if (grid.childNodes.length) c.appendChild(grid);
+    }
+
+    const foot = el("div", "card-foot");
+    for (const fid of (b.folders || [])) {
+      const f = folders().find((x) => x.id === fid);
+      if (!f) continue;
+      const chip = el("span", "chip");
+      const cd = el("span", "chip-dot"); cd.style.background = f.color; chip.appendChild(cd);
+      chip.appendChild(el("span", null, f.name));
+      foot.appendChild(chip);
+    }
+    if (b.url) {
+      const open = document.createElement("a");
+      open.className = "open-link"; open.textContent = "Open ↗";
+      open.href = b.url; open.target = "_blank"; open.rel = "noopener";
+      foot.appendChild(open);
+    }
+    c.appendChild(foot);
+    return c;
+  }
+
+  tryAutoLoad();
+  </script>
+</body>
+</html>
