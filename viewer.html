@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#14131a" />
+  <meta name="referrer" content="no-referrer" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>Bookmark Vault — Viewer</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -123,6 +124,12 @@
     .open-link:hover { border-color: var(--parchment); color: var(--parchment); }
 
     .empty { text-align: center; padding: 60px 20px; color: var(--parchment-dim); font-size: 14px; }
+    .media-note {
+      margin-top: 11px; padding: 14px; background: var(--ink-3); border: 1px solid var(--line);
+      border-radius: 9px; font-size: 12.5px; color: var(--parchment-dim);
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .media-note .open-link { margin-left: 0; }
 
     ::-webkit-scrollbar { width: 10px; }
     ::-webkit-scrollbar-thumb { background: var(--ink-3); border-radius: 10px; border: 2px solid var(--ink); }
@@ -196,6 +203,19 @@
 
   const $ = (id) => document.getElementById(id);
   const el = (tag, cls, txt) => { const n = document.createElement(tag); if (cls) n.className = cls; if (txt != null) n.textContent = txt; return n; };
+
+  // Inline notice shown where a video would be, when it can't play.
+  function mediaNote(text, url) {
+    const note = el("div", "media-note");
+    note.appendChild(el("span", null, text + " "));
+    if (url) {
+      const a = document.createElement("a");
+      a.className = "open-link"; a.textContent = "Open on X ↗";
+      a.href = url; a.target = "_blank"; a.rel = "noopener";
+      note.appendChild(a);
+    }
+    return note;
+  }
 
   /* ===== load the encrypted file ===== */
   function setMsg(text, kind) { const m = $("lockMsg"); m.textContent = text || ""; m.className = "lock-msg" + (kind ? " " + kind : ""); }
@@ -320,13 +340,18 @@
           wrap.addEventListener("click", () => {
             if (m.url) {
               const v = document.createElement("video");
+              v.referrerPolicy = "no-referrer"; // X video URLs can 403 on a referer from another site
               v.src = m.url; v.controls = true; v.autoplay = true; v.playsInline = true;
               if (m.poster) v.poster = m.poster;
               if (m.gif) { v.loop = true; v.muted = true; }
               v.className = "media-item";
-              v.addEventListener("error", () => b.url && window.open(b.url, "_blank"));
+              // Don't silently jump to X if it won't load — show why, and let
+              // the message tell us apart "no URL" from "URL failed to load".
+              v.addEventListener("error", () => v.replaceWith(mediaNote("Couldn't play this video inline.", b.url)));
               wrap.replaceWith(v);
-            } else if (b.url) { window.open(b.url, "_blank"); }
+            } else {
+              wrap.replaceWith(mediaNote("No inline video URL was stored for this bookmark.", b.url));
+            }
           });
           grid.appendChild(wrap);
         } else if (m.url) {
