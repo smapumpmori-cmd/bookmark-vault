@@ -22,6 +22,19 @@
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { background: var(--ink); color: var(--parchment); font-family: var(--sans); font-size: 15px; }
+
+    .theme-light {
+      --ink: #f8f6f1; --ink-2: #ffffff; --ink-3: #efecea; --line: #ddd8cf;
+      --parchment: #1c1b18; --parchment-dim: #5c574d; --parchment-faint: #928b7e;
+      --amber: #b87d1a; --amber-soft: rgba(184,125,26,0.1); --danger: #b94444;
+    }
+    .theme-light .video-poster .play-badge { background: rgba(255,255,255,0.85); color: var(--parchment); border-color: var(--line); }
+    .theme-toggle {
+      background: transparent; border: 1px solid var(--line); color: var(--parchment-dim);
+      border-radius: 50%; width: 34px; height: 34px; font-size: 16px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .theme-toggle:hover { border-color: var(--amber); color: var(--amber); }
     body { min-height: 100vh; }
 
     /* ---- lock screen ---- */
@@ -148,7 +161,7 @@
   <!-- unlock screen -->
   <div id="lock" class="lock">
     <div class="lock-card">
-      <div class="lock-brand"><span class="mark">❧</span><h1>Bookmark Vault</h1></div>
+      <div class="lock-brand"><span class="mark">❧</span><h1>Bookmark Vault</h1><button id="lockThemeToggle" class="theme-toggle" style="margin-left:auto">☀</button></div>
       <p class="lock-sub">Read-only viewer. Enter the password you used when exporting to unlock your archive on this device.</p>
       <label for="pw">Password</label>
       <input id="pw" type="password" autocomplete="current-password" />
@@ -165,6 +178,7 @@
   <div id="app" class="app">
     <header class="topbar">
       <div class="brand"><span class="mark">❧</span><h1>Bookmark Vault</h1></div>
+      <button id="themeToggle" class="theme-toggle" title="Switch to light">☀</button>
       <div class="search"><input id="search" type="text" placeholder="Search…" autocomplete="off" /></div>
     </header>
     <div id="filters" class="filters"></div>
@@ -204,6 +218,24 @@
     }
     return { decryptVault };
   })();
+
+  /* ===== day / night theme ===== */
+  function loadTheme() { return localStorage.getItem("vault_theme") || "dark"; }
+  function saveTheme(t) { localStorage.setItem("vault_theme", t); }
+  function setTheme(t) {
+    document.documentElement.classList.toggle("theme-light", t === "light");
+    document.querySelectorAll(".theme-toggle").forEach((btn) => {
+      btn.textContent = t === "light" ? "☾" : "☀";
+      btn.title = t === "light" ? "Switch to dark" : "Switch to light";
+    });
+  }
+  function toggleTheme() {
+    const next = document.documentElement.classList.contains("theme-light") ? "dark" : "light";
+    setTheme(next); saveTheme(next);
+  }
+  setTheme(loadTheme());
+  document.getElementById("lockThemeToggle").addEventListener("click", toggleTheme);
+  document.getElementById("themeToggle").addEventListener("click", toggleTheme);
 
   /* ===== state ===== */
   let envelope = null;     // parsed encrypted file
