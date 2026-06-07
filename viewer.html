@@ -80,6 +80,15 @@
     .pill.active { background: var(--ink-3); color: var(--parchment); border-color: var(--parchment-faint); }
     .pill .pdot { width: 8px; height: 8px; border-radius: 50%; }
     .pill .pcount { font-family: var(--mono); font-size: 11px; color: var(--parchment-faint); }
+    .pill .pfav { color: var(--amber); font-size: 11px; }
+    .pill .pmode { font-family: var(--mono); font-size: 10px; color: var(--parchment-faint); }
+
+    .hidden-toggle { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--line); text-align: center; }
+    .toggle-btn {
+      background: transparent; border: 1px solid var(--line); color: var(--parchment-faint);
+      border-radius: 999px; padding: 8px 16px; font-family: var(--sans); font-size: 12.5px; cursor: pointer;
+    }
+    .toggle-btn:hover { color: var(--parchment); border-color: var(--parchment-faint); }
 
     .main { padding: 14px 16px 40px; }
     .meta { font-family: var(--mono); font-size: 11px; color: var(--parchment-faint); margin-bottom: 12px; }
@@ -163,6 +172,7 @@
       <p id="meta" class="meta"></p>
       <div id="list" class="list"></div>
       <div id="empty" class="empty" hidden>No bookmarks match this view.</div>
+      <div id="hiddenToggle" class="hidden-toggle" hidden></div>
     </main>
   </div>
 
@@ -198,8 +208,9 @@
   /* ===== state ===== */
   let envelope = null;     // parsed encrypted file
   let payload = null;      // decrypted { bookmarks, folders, ... }
-  let selected = "all";    // 'all' | 'unfiled' | folderId
+  let selected = null;     // null = nothing chosen yet | 'all' | 'unfiled' | folderId
   let query = "";
+  let showHidden = false;  // session only — always resets to concealed on load
 
   const $ = (id) => document.getElementById(id);
   const el = (tag, cls, txt) => { const n = document.createElement(tag); if (cls) n.className = cls; if (txt != null) n.textContent = txt; return n; };
@@ -257,6 +268,8 @@
       $("pw").value = "";
       $("lock").style.display = "none";
       $("app").style.display = "block";
+      const fav = favoriteFolder();
+      selected = fav ? fav.id : null; // land on the safe folder, else "pick a folder"
       renderFilters(); renderList();
     } catch (err) {
       setMsg(err.message, "error");
@@ -272,9 +285,21 @@
   function bookmarks() { return Array.isArray(payload.bookmarks) ? payload.bookmarks : []; }
   function folders() { return Array.isArray(payload.folders) ? payload.folders : []; }
 
+  // Per-folder viewer settings (set in the extension, carried in the export).
+  function fmode(f) { return (f && f.mode) || "normal"; }
+  function outOfAllIds() { return new Set(folders().filter((f) => fmode(f) !== "normal").map((f) => f.id)); }
+  function hiddenIds() { return new Set(folders().filter((f) => fmode(f) === "hidden").map((f) => f.id)); }
+  function favoriteFolder() { return folders().find((f) => f.favorite && fmode(f) !== "hidden") || null; }
+
   function listFor(sel) {
     const all = bookmarks(); // already sorted at export time
-    if (sel === "all") return all;
+    if (sel == null) return [];
+    if (sel === "all") {
+      const ex = outOfAllIds();
+      if (!ex.size) return all;
+      // Exclusive + Hidden folders' tweets drop out of All.
+      return all.filter((b) => !(b.folders || []).some((id) => ex.has(id)));
+    }
     if (sel === "unfiled") return all.filter((b) => !b.folders || b.folders.length === 0);
     return all.filter((b) => (b.folders || []).includes(sel));
   }
@@ -292,14 +317,21 @@
   /* ===== rendering ===== */
   function renderFilters() {
     const bar = $("filters"); bar.innerHTML = "";
-    bar.appendChild(pill("all", "All", null, countFor("all")));
-    bar.appendChild(pill("unfiled", "Unfiled", null, countFor("unfiled")));
-    for (const f of folders()) bar.appendChild(pill(f.id, f.name, f.color, countFor(f.id)));
+    bar.appendChild(pill("all", "All", null, countFor("all"), "normal", false));
+    bar.appendChild(pill("unfiled", "Unfiled", null, countFor("unfiled"), "normal", false));
+    for (const f of folders()) {
+      const m = fmode(f);
+      if (m === "hidden" && !showHidden) continue; // concealed until revealed
+      bar.appendChild(pill(f.id, f.name, f.color, countFor(f.id), m, !!f.favorite));
+    }
   }
-  function pill(id, name, color, count) {
+  function pill(id, name, color, count, mode, fav) {
     const p = el("div", "pill" + (selected === id ? " active" : ""));
     if (color) { const d = el("span", "pdot"); d.style.background = color; p.appendChild(d); }
+    if (fav) p.appendChild(el("span", "pfav", "★"));
     p.appendChild(el("span", null, name));
+    if (mode === "exclusive") p.appendChild(el("span", "pmode", "· only here"));
+    if (mode === "hidden") p.appendChild(el("span", "pmode", "· hidden"));
     p.appendChild(el("span", "pcount", String(count)));
     p.addEventListener("click", () => { selected = id; renderFilters(); renderList(); });
     return p;
@@ -307,11 +339,39 @@
 
   function renderList() {
     const list = $("list"); list.innerHTML = "";
+    if (selected == null) {
+      $("meta").textContent = "";
+      $("empty").hidden = false;
+      $("empty").textContent = "Choose a folder above to view its bookmarks.";
+      renderToggle();
+      return;
+    }
     const items = applySearch(listFor(selected));
     $("meta").textContent = `${items.length} bookmark${items.length === 1 ? "" : "s"}`
       + (payload.exportedAt ? ` · exported ${new Date(payload.exportedAt).toLocaleString()}` : "");
     $("empty").hidden = items.length > 0;
+    $("empty").textContent = "No bookmarks match this view.";
     for (const b of items) list.appendChild(card(b));
+    renderToggle();
+  }
+
+  // Bottom toggle to reveal hidden folders — only present when hidden folders
+  // exist, and always reset to concealed on load (showHidden starts false).
+  function renderToggle() {
+    const wrap = $("hiddenToggle");
+    if (hiddenIds().size === 0) { wrap.hidden = true; wrap.innerHTML = ""; return; }
+    wrap.hidden = false; wrap.innerHTML = "";
+    const btn = el("button", "toggle-btn", showHidden ? "Hide hidden folders" : "Show hidden folders");
+    btn.addEventListener("click", () => {
+      showHidden = !showHidden;
+      // If we're re-concealing and we're currently inside a hidden folder, step back to safety.
+      if (!showHidden && selected && hiddenIds().has(selected)) {
+        const fav = favoriteFolder();
+        selected = fav ? fav.id : null;
+      }
+      renderFilters(); renderList();
+    });
+    wrap.appendChild(btn);
   }
 
   function card(b) {
