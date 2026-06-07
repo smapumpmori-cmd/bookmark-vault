@@ -346,14 +346,18 @@
   }
   function countFor(sel) { return listFor(sel).length; }
 
+  function sysHidden() { return new Set(payload.viewerSystemHidden || []); }
+
   /* ===== rendering ===== */
   function renderFilters() {
     const bar = $("filters"); bar.innerHTML = "";
-    bar.appendChild(pill("all", "All", null, countFor("all"), "normal", false));
-    bar.appendChild(pill("unfiled", "Unfiled", null, countFor("unfiled"), "normal", false));
+    const sh = sysHidden();
+    if (!sh.has("all")) bar.appendChild(pill("all", "All", null, countFor("all"), "normal", false));
+    if (!sh.has("unfiled")) bar.appendChild(pill("unfiled", "Unfiled", null, countFor("unfiled"), "normal", false));
     for (const f of folders()) {
       const m = fmode(f);
-      if (m === "hidden" && !showHidden) continue; // concealed until revealed
+      if (m === "hidden" && !showHidden) continue;
+      if (f.system && sh.has(f.id)) continue; // system folder hidden from viewer
       bar.appendChild(pill(f.id, f.name, f.color, countFor(f.id), m, !!f.favorite));
     }
   }
