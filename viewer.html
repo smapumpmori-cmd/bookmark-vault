@@ -94,7 +94,6 @@
     .pill .pdot { width: 8px; height: 8px; border-radius: 50%; }
     .pill .pcount { font-family: var(--mono); font-size: 11px; color: var(--parchment-faint); }
     .pill .pfav { color: var(--amber); font-size: 11px; }
-    .pill .pmode { font-family: var(--mono); font-size: 10px; color: var(--parchment-faint); }
 
     .hidden-toggle { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--line); text-align: center; }
     .toggle-btn {
@@ -366,8 +365,6 @@
     if (color) { const d = el("span", "pdot"); d.style.background = color; p.appendChild(d); }
     if (fav) p.appendChild(el("span", "pfav", "★"));
     p.appendChild(el("span", null, name));
-    if (mode === "exclusive") p.appendChild(el("span", "pmode", "· only here"));
-    if (mode === "hidden") p.appendChild(el("span", "pmode", "· hidden"));
     p.appendChild(el("span", "pcount", String(count)));
     p.addEventListener("click", () => { selected = id; renderFilters(); renderList(); });
     return p;
