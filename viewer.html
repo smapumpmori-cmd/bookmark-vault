@@ -423,6 +423,7 @@
           if (m.poster) {
             const img = document.createElement("img");
             img.src = m.poster; img.loading = "lazy"; img.className = "media-item";
+            img.referrerPolicy = "no-referrer";
             wrap.appendChild(img);
           } else {
             wrap.classList.add("no-poster");
@@ -450,7 +451,9 @@
         } else if (m.url) {
           const img = document.createElement("img");
           img.src = m.url; img.loading = "lazy"; img.className = "media-item";
+          img.referrerPolicy = "no-referrer";
           img.addEventListener("click", () => window.open(m.url, "_blank"));
+          img.addEventListener("error", () => img.replaceWith(mediaNote("Image couldn't load.", b.url || m.url)));
           grid.appendChild(img);
         }
       }
