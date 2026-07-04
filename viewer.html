@@ -135,6 +135,8 @@
       background: rgba(20,19,26,0.7); border: 1px solid rgba(236,228,214,0.5); color: var(--parchment); font-size: 18px; padding-left: 3px;
     }
     .video-poster:hover .play-badge { background: var(--amber); color: #2a2008; }
+    .video-poster .dl-badge { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(20,19,26,0.72); border: 1px solid rgba(236,228,214,0.45); color: var(--parchment); font-size: 15px; text-decoration: none; z-index: 2; }
+    .video-poster .dl-badge:hover { background: var(--amber); color: #2a2008; }
     .video-poster.no-poster { min-height: 120px; background: var(--ink-3); border: 1px solid var(--line); border-radius: 9px; display: flex; align-items: center; justify-content: center; }
     .no-poster-label { position: absolute; bottom: 8px; left: 10px; font-family: var(--mono); font-size: 11px; color: var(--parchment-faint); }
 
@@ -431,6 +433,17 @@
           }
           wrap.appendChild(el("span", "play-badge", "▶"));
           wrap.title = m.url ? "Play" : "Open on X to play";
+          const dl = m.downloadUrl || m.url;
+          if (dl) {
+            const a = document.createElement("a");
+            a.className = "dl-badge";
+            a.textContent = "⬇";
+            a.href = dl;
+            a.setAttribute("download", "");   // Chrome on Android saves to Downloads
+            a.title = "Download video (best quality)";
+            a.addEventListener("click", (e) => e.stopPropagation()); // don't trigger play
+            wrap.appendChild(a);
+          }
           wrap.addEventListener("click", () => {
             if (m.url) {
               const v = document.createElement("video");
